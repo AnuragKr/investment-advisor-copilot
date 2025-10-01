@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.services.user import UserService
+from app.services.portfolio import PortfolioService
 from app.core.security import oauth2_scheme
 from app.utils.security import decode_access_token
 from fastapi import HTTPException,status
@@ -56,6 +57,31 @@ def get_user_service(session: SessionDep) -> UserService:
 # This allows FastAPI to automatically inject the service into route handlers
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 
+
+def get_portfolio_service(session: SessionDep) -> PortfolioService:
+    """
+    Dependency function to create and inject PortfolioService instances.
+    
+    This function creates a new PortfolioService instance for each request,
+    ensuring proper isolation and resource management.
+    
+    Args:
+        session (SessionDep): Database session dependency
+        
+    Returns:
+        PortfolioService: Configured portfolio service instance
+        
+    Note:
+        Each request gets a fresh service instance with its own database session.
+        This ensures thread safety and proper resource cleanup.
+    """
+    return PortfolioService(session)
+
+
+# Type annotation for PortfolioService dependency injection
+# This allows FastAPI to automatically inject the service into route handlers
+PortfolioServiceDep = Annotated[PortfolioService, Depends(get_portfolio_service)]
+
 # Access token data dep
 async def get_access_token(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
     data = decode_access_token(token)
@@ -80,28 +106,4 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated")
     return user_model
 
-async def get_current_admin(
-    current_user: Annotated[User, Depends(get_current_user)],
-):
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin privileges required",
-        )
-    return current_user
-
-async def get_current_customer(
-    current_user: Annotated[User, Depends(get_current_user)],
-):
-    if current_user.role != "customer":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Customer privileges required",
-        )
-    return current_user
-
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
-
-CurrentAdminDep = Annotated[User, Depends(get_current_admin)]
-
-CurrentCustomerDep = Annotated[User, Depends(get_current_customer)]

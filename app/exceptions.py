@@ -68,3 +68,18 @@ class AuthenticationError(BaseException):
 class ValidationError(BaseException):
     """Raised when data validation fails."""
     pass
+
+
+class PortfolioNotFoundError(BaseException):
+    """Raised when a portfolio entry is not found."""
+    pass
+
+
+class PortfolioAlreadyExistsError(BaseException):
+    """Raised when trying to create a portfolio entry that already exists."""
+    pass
+
+
+class InvalidPortfolioDataError(BaseException):
+    """Raised when portfolio data is invalid."""
+    pass

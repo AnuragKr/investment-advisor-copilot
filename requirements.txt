@@ -2,7 +2,7 @@ annotated-types
 anyio
 async-timeout
 asyncpg
-bcrypt
+bcrypt==4.0.1
 certifi
 click
 dnspython
@@ -26,7 +26,7 @@ MarkupSafe
 mdurl
 orjson
 packaging
-passlib
+passlib[bcrypt]
 pluggy
 pydantic
 pydantic-extra-types

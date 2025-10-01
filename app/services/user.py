@@ -1,105 +1,54 @@
-"""
-User Service Module
-
-This module provides business logic layer operations for user management.
-It handles user authentication, authorization, and all business rules
-related to user operations.
-
-The service layer sits between the API controllers and repositories,
-implementing business logic, validation, and security measures.
-
-Key Features:
-- User CRUD operations with business rule enforcement
-- Secure password hashing and verification
-- User authentication and validation
-- Comprehensive error handling and logging
-- Input validation and sanitization
-"""
+"""User service for business logic and authentication."""
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.user import UserRepository
-from app.schemas.user import UserResponse, UserFilter, UserCreate, UserUpdate
+from app.schemas.user import UserResponse, UserCreate, UserUpdate
 from app.exceptions import UserNotFoundError, DatabaseError, UserAlreadyExistsError
 import logging
 from datetime import datetime
 from passlib.context import CryptContext
 from app.utils.security import generate_access_token
-# Configure logging for user service operations
 logger = logging.getLogger(__name__)
-
-# Password hashing context using bcrypt algorithm
-# bcrypt is a secure, adaptive hashing algorithm designed for password storage
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class UserService:
-    """
-    Service class for user business logic operations.
+    """Service for user business logic and authentication."""
     
-    This class implements all business logic related to user management,
-    including authentication, validation, and business rule enforcement.
-    It acts as an intermediary between the API layer and data access layer.
-    
-    Attributes:
-        repo (UserRepository): Repository instance for data access
-        session (AsyncSession): Database session for the current operation
-        
-    Methods:
-        create_user: Create new user with validation and password hashing
-        update_user: Update existing user with business rule checks
-        get_user: Retrieve user by ID with error handling
-        get_user_by_email: Retrieve user by email for authentication
-        list_users: Retrieve filtered list of users
-        delete_user: Delete user with validation
-        authenticate_user: Verify user credentials for login
-    """
-    
-    def __init__(self):
-        """
-        Initialize UserService with database session.
-        """
+    def __init__(self, session: AsyncSession):
         self.repo = UserRepository()
+        self.session = session
 
     def _hash_password(self, password: str) -> str:
-        """
-        Hash a plain text password using bcrypt.
-        Args:
-            password (str): Plain text password to hash   
-        Returns:
-            str: Hashed password string
-
-        """
+        """Hash a plain text password using bcrypt."""
+        # bcrypt has a 72 byte limit, truncate if necessary
+        if len(password.encode('utf-8')) > 72:
+            password = password[:72]
         return pwd_context.hash(password)
 
     def _verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """
-        Verify a plain text password against a hashed password.
-        Args:
-            plain_password (str): Plain text password to verify
-            hashed_password (str): Stored hashed password to compare against
-        Returns:
-            bool: True if passwords match, False otherwise
-        """
+        """Verify a plain text password against a hashed password."""
+        # bcrypt has a 72 byte limit, truncate if necessary
+        if len(plain_password.encode('utf-8')) > 72:
+            plain_password = plain_password[:72]
         return pwd_context.verify(plain_password, hashed_password)
 
     async def create_user(self, user_in: UserCreate) -> UserResponse:
-        """
-        Create a new user with comprehensive validation and security measures.
-        Args:
-            user_in (UserCreate): User creation data from API request
-            
-        Returns:
-            UserResponse: Created user data (excluding password)
-        """
+        """Create a new user with validation and security measures."""
         try:
             # Check if user with email already exists to prevent duplicates
-            existing_user = await self.repo.get_by_email(user_in.email)
+            existing_user = await self.repo.get_by_email(self.session, user_in.email_id)
             if existing_user:
-                logger.warning(f"User creation failed: email {user_in.email} already exists")
+                logger.warning(f"User creation failed: email {user_in.email_id} already exists")
                 raise UserAlreadyExistsError("User with this email already exists")
 
             # Prepare user data for creation
             create_data = user_in.model_dump()
+            current_time = datetime.now()
+            
+            # Set automatic timestamps
+            create_data['created_at'] = current_time
+            create_data['updated_at'] = current_time
             
             # Hash password for secure storage
             create_data['password'] = self._hash_password(create_data['password'])
@@ -226,43 +175,6 @@ class UserService:
             logger.error(f"Failed to retrieve user with email {email}: {str(e)}", exc_info=True)
             raise DatabaseError("Failed to retrieve user")
 
-    async def list_users(self, skip: int = 0, limit: int = 10, filters: UserFilter = None) -> list[UserResponse]:
-        """
-        Retrieve a filtered and paginated list of users.
-        
-        Args:
-            skip (int): Number of records to skip for pagination
-            limit (int): Maximum number of records to return
-            filters (UserFilter, optional): Filter criteria for the query
-            
-        Returns:
-            list[UserResponse]: List of user data (excluding passwords)
-            
-        Raises:
-            DatabaseError: If database operation fails
-            
-        Note:
-            - Empty result sets return an empty list, not None
-            - Pagination parameters are validated at the API level
-            - Filters support  search, city, and country criteria
-        """
-        try:
-            user_model_list = await self.repo.get_list(self.session, skip=skip, limit=limit, filters=filters)
-            
-            if not user_model_list:
-                logger.info("User list query returned no results")
-                return []  # Return empty list if no data found
-            
-            # Convert models to response schemas (excluding sensitive data)
-            user_responses = [UserResponse.model_validate(user_model) for user_model in user_model_list]
-            logger.info(f"Retrieved {len(user_responses)} users successfully")
-            
-            return user_responses
-            
-        except Exception as e:
-            logger.error(f"Failed to list users: {str(e)}", exc_info=True)
-            raise DatabaseError("Failed to list users")
-
     async def delete_user(self, user_id: int) -> bool:
         """
         Delete a user from the system.
@@ -325,9 +237,8 @@ class UserService:
 
             access_token = generate_access_token(data={
             "user": {
-                "name": user_model.first_name + " " + user_model.last_name,
-                "id": user_model.user_id,
-                "role": user_model.role,
+                "name": user_model.name,
+                "id": user_model.user_id
             }      })
 
             return access_token

@@ -1,5 +1,5 @@
 """
-E-commerce REST API Main Application Module
+Investment Advisor REST API Main Application Module
 
 This module serves as the entry point for the FastAPI application.
 It configures the application, includes all API routers, and sets up
@@ -11,6 +11,7 @@ import logging
 from scalar_fastapi import get_scalar_api_reference
 from app.config import project_settings
 from app.api.v1.user import router as user_router
+from app.api.v1.portfolio import router as portfolio_router
 
 
 # Configure application-wide logging
@@ -41,7 +42,7 @@ def create_application() -> FastAPI:
     # Initialize FastAPI application with metadata and configuration
     app = FastAPI(
         title=project_settings.PROJECT_NAME,
-        description="Production-grade E-commerce API with comprehensive product and user management",
+        description="Production-grade Investment Advisor API with comprehensive user and portfolio management",
         version=project_settings.VERSION,
         openapi_url=f"{project_settings.API_V1_STR}/openapi.json",
         docs_url="/docs",
@@ -49,8 +50,9 @@ def create_application() -> FastAPI:
     )
     
     # Register API routers for different resource endpoints
-    # Each router handles a specific domain (products, users, etc.)
+    # Each router handles a specific domain (users, portfolio, etc.)
     app.include_router(user_router, prefix="/api/v1")
+    app.include_router(portfolio_router, prefix="/api/v1")
     
     logger.info("FastAPI application created successfully with all routers registered")
     return app
@@ -63,7 +65,7 @@ app = create_application()
 
 @app.get("/")
 async def root():
-    return {"message": "E-commerce API is running"}
+    return {"message": "Investment Advisor API is running"}
 
 
 @app.get("/scalar", include_in_schema=False)
