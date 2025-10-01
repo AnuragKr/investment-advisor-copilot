@@ -1,11 +1,11 @@
 """Portfolio API endpoints for management operations."""
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Body
 from app.core.dependencies import PortfolioServiceDep, CurrentUserDep
 from app.schemas.portfolio import PortfolioCreate, PortfolioUpdate, PortfolioResponse, PortfolioFilter
 from app.exceptions import PortfolioNotFoundError, DatabaseError, InvalidPortfolioDataError
 from app.models.user import User
-from typing import Optional
+from typing import Optional, Union
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -39,15 +39,36 @@ async def list_portfolios(
         raise HTTPException(status_code=500, detail="Unable to retrieve portfolio entries at this time")
 
 
-@router.post("/", response_model=PortfolioResponse)
-async def create_portfolio(service: PortfolioServiceDep, current_user: CurrentUserDep, portfolio: PortfolioCreate):
-    """Create a new portfolio entry for authenticated user."""
+@router.post("/", response_model=Union[PortfolioResponse, list[PortfolioResponse]], status_code=201)
+async def create_portfolio(
+    service: PortfolioServiceDep, 
+    current_user: CurrentUserDep, 
+    portfolio: Union[PortfolioCreate, list[PortfolioCreate]] = Body(...)
+):
+    """Create portfolio entry/entries for authenticated user. Accepts single object or array."""
     try:
-        return await service.create_portfolio(current_user.user_id, portfolio)
+        # Check if input is a list (bulk creation)
+        if isinstance(portfolio, list):
+            created_portfolios = []
+            for idx, item in enumerate(portfolio):
+                try:
+                    created_portfolio = await service.create_portfolio(current_user.user_id, item)
+                    created_portfolios.append(created_portfolio)
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=422, 
+                        detail=f"Error creating portfolio at index {idx}: {str(e)}"
+                    )
+            return created_portfolios
+        else:
+            # Single portfolio creation
+            return await service.create_portfolio(current_user.user_id, portfolio)
     except InvalidPortfolioDataError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    except DatabaseError:
-        raise HTTPException(status_code=500, detail="Unable to create portfolio entry at this time")
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 
 @router.put("/{portfolio_id}", response_model=PortfolioResponse)
@@ -75,16 +96,7 @@ async def delete_portfolio(service: PortfolioServiceDep, current_user: CurrentUs
         raise HTTPException(status_code=500, detail="Unable to delete portfolio entry at this time")
 
 
-@router.get("/my-portfolios", response_model=list[PortfolioResponse])
-async def get_my_portfolios(service: PortfolioServiceDep, current_user: CurrentUserDep):
-    """Retrieve all portfolio entries for authenticated user."""
-    try:
-        return await service.get_portfolios_by_user(current_user.user_id)
-    except DatabaseError:
-        raise HTTPException(status_code=500, detail="Unable to retrieve portfolio entries at this time")
-
-
-@router.get("/my-portfolios/symbol/{symbol}", response_model=list[PortfolioResponse])
+@router.get("/symbol/{symbol}", response_model=list[PortfolioResponse])
 async def get_my_portfolios_by_symbol(service: PortfolioServiceDep, current_user: CurrentUserDep, symbol: str):
     """Retrieve authenticated user's portfolio entries by symbol."""
     try:

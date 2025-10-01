@@ -46,6 +46,12 @@ class Portfolio(SQLModel, table=True):
         nullable=False, 
         description="Type of asset (e.g., Equity, Bond, ETF)"
     )
+
+    sector: str = Field(
+        ..., 
+        nullable=False, 
+        description="Type of sector (e.g., Technology, Healthcare, Financials)"
+    )
     
     # Transaction quantity
     quantity: int = Field(
@@ -79,19 +85,6 @@ class Portfolio(SQLModel, table=True):
         max_digits=10, 
         decimal_places=4,
         description="Sell price per unit (if sold)"
-    )
-    
-    # System audit fields
-    created_at: Optional[datetime] = Field(
-        default=None, 
-        nullable=False, 
-        description="Record creation timestamp"
-    )
-    
-    updated_at: Optional[datetime] = Field(
-        default=None, 
-        nullable=False, 
-        description="Last update timestamp"
     )
     
     class Config:

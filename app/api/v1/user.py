@@ -44,7 +44,7 @@ async def get_user(service: UserServiceDep, user: CurrentUserDep):
         raise HTTPException(status_code=500, detail="Unable to retrieve user at this time")
 
 
-@router.post("/", response_model=UserResponse)
+@router.post("/", response_model=UserResponse, status_code=201)
 async def create_user(service: UserServiceDep, user: UserCreate):
     """Create a new user account."""
     try:

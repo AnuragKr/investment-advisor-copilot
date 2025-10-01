@@ -98,13 +98,12 @@ class PortfolioService:
             create_data = portfolio_in.model_dump()
             create_data['user_id'] = user_id
             
+            # Set purchase_date to current datetime if not provided
+            if not create_data.get('purchase_date'):
+                create_data['purchase_date'] = datetime.now()
+            
             # Validate portfolio data
             self._validate_portfolio_data(create_data)
-            
-            # Set automatic timestamps
-            current_time = datetime.now()
-            create_data['created_at'] = current_time
-            create_data['updated_at'] = current_time
             
             # Create portfolio entry in database
             portfolio_model = await self.repo.create(self.session, create_data)
@@ -117,8 +116,9 @@ class PortfolioService:
             # Re-raise business logic exceptions
             raise
         except Exception as e:
-            logger.error(f"Failed to create portfolio entry: {str(e)}", exc_info=True)
-            raise DatabaseError("Failed to create portfolio entry")
+            error_msg = f"Failed to create portfolio entry: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            raise DatabaseError(error_msg)
 
     async def update_portfolio(self, user_id: int, portfolio_id: int, portfolio_in: PortfolioUpdate) -> PortfolioResponse:
         """Update an existing portfolio entry (only if owned by the authenticated user)."""
@@ -136,6 +136,12 @@ class PortfolioService:
             
             # Prepare update data
             update_data = portfolio_in.model_dump(exclude_unset=True)
+            
+            # Auto-set sell_date if sell_price is provided and sell_date is not already set
+            if 'sell_price' in update_data and update_data['sell_price'] is not None:
+                if 'sell_date' not in update_data and not existing_portfolio.sell_date:
+                    update_data['sell_date'] = datetime.now()
+                    logger.info(f"Auto-setting sell_date for portfolio {portfolio_id}")
             
             # Validate portfolio data if any financial fields are being updated
             if any(field in update_data for field in ['quantity', 'purchase_price', 'sell_price', 'purchase_date', 'sell_date']):
