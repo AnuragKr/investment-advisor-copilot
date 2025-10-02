@@ -66,5 +66,6 @@ langchain-tavily
 yfinance
 numpy
 pandas
+pandas-ta
 pyyaml
 pydantic-settings

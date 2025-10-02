@@ -31,7 +31,8 @@ class AgentOrchestrator:
         self.agent_descriptions = {
             "market": "Market Analysis Agent - Handles market news, stock information, sector analysis, and financial market data",
             "portfolio": "Portfolio Analysis Agent - Handles portfolio analysis, risk assessment, optimization, and investment recommendations",
-            "user_data": "User Data Agent - Handles portfolio data access and analysis"
+            "user_data": "User Data Agent - Handles portfolio data access and analysis",
+            "security": "Security Analysis Agent - Handles technical analysis including RSI, Moving Averages, MACD, and other technical indicators"
         }
     
     async def process_query(self, query: str, user_id: str = "default") -> Dict[str, Any]:
@@ -88,15 +89,17 @@ class AgentOrchestrator:
         - "user_data": {self.agent_descriptions['user_data']}
         - "portfolio": {self.agent_descriptions['portfolio']}
         - "market": {self.agent_descriptions['market']}
+        - "security": {self.agent_descriptions['security']}
 
         Guidelines:
         - For queries about "my portfolio", "my holdings", "what stocks do I own", "do I own [stock]", use "user_data"
         - For portfolio analysis, risk assessment, optimization, recommendations, use "portfolio"
         - For market news, stock prices, sector analysis, market trends, use "market"
+        - For technical analysis, RSI, moving averages, MACD, trading signals, use "security"
         - For general investment advice that needs portfolio context, use "portfolio"
         - For specific stock information or market data, use "market"
 
-        Respond with ONLY the agent name: "user_data", "portfolio", or "market"
+        Respond with ONLY the agent name: "user_data", "portfolio", "market", or "security"
         """
         
         messages = [
@@ -108,7 +111,7 @@ class AgentOrchestrator:
         selected_agent = response.content.strip().lower()
         
         # Validate the response
-        valid_agents = ["user_data", "portfolio", "market"]
+        valid_agents = ["user_data", "portfolio", "market", "security"]
         if selected_agent in valid_agents:
             return selected_agent
         else:
@@ -125,6 +128,7 @@ class AgentOrchestrator:
             - "market": {self.agent_descriptions['market']}
             - "portfolio": {self.agent_descriptions['portfolio']}
             - "user_data": {self.agent_descriptions['user_data']}
+            - "security": {self.agent_descriptions['security']}
         
         Analyze the user query and determine:
         1. Which agents are needed (can be one or multiple)
@@ -153,6 +157,7 @@ class AgentOrchestrator:
         - For market news, stock info, sector analysis, use "market" agent
         - For portfolio analysis, risk assessment, optimization, use "portfolio" agent
         - For direct portfolio data access (holdings, summary, filters), use "user_data" agent
+        - For technical analysis, RSI, moving averages, MACD, trading signals, use "security" agent
         - For queries about "my portfolio", "my holdings", "what stocks do I own", use "user_data" agent
         - For portfolio valuation, analysis, recommendations, use "portfolio" agent
         - For market trends, stock prices, sector performance, use "market" agent
@@ -162,10 +167,11 @@ class AgentOrchestrator:
         - "What stocks do I own?" → single: "user_data"  
         - "Analyze my portfolio risk" → single: "portfolio"
         - "What's the latest news on Apple?" → single: "market"
-        - "Should I buy more AAPL?" → sequential: ["user_data", "portfolio"] (get portfolio data, then analyze)
+        - "What's the RSI of AAPL?" → single: "security"
+        - "Should I buy more AAPL?" → sequential: ["user_data", "security", "portfolio"] (get portfolio data, analyze AAPL technically, then make recommendation)
         - "How is my portfolio performing vs market trends?" → parallel: ["user_data", "market"] (get portfolio + market data simultaneously)
-        - "What's the risk of my current holdings given market conditions?" → sequential: ["user_data", "market", "portfolio"] (get portfolio, get market, then analyze risk)
-        - "Compare my tech stocks to market performance" → parallel: ["user_data", "market"] (get portfolio tech holdings + market tech performance)
+        - "What's the risk of my current tech holdings given market conditions?" → sequential: ["user_data", "market", "security", "portfolio"] (get portfolio, get market, analyze tech stocks technically, then assess risk)
+        - "Compare my tech stocks to market performance" → parallel: ["user_data", "market", "security"] (get portfolio tech holdings + market tech performance + technical analysis)
         """
         
         messages = [
@@ -184,7 +190,7 @@ class AgentOrchestrator:
                 raise ValueError("Invalid plan format")
             
             # Ensure agents are valid
-            valid_agents = ["market", "portfolio", "user_data"]
+            valid_agents = ["market", "portfolio", "user_data", "security"]
             plan["agents"] = [agent for agent in plan["agents"] if agent in valid_agents]
             
             # Fix agent names if they're using full names
@@ -192,9 +198,11 @@ class AgentOrchestrator:
                 "Market Analysis Agent": "market",
                 "Portfolio Analysis Agent": "portfolio",
                 "User Data Agent": "user_data",
+                "Security Analysis Agent": "security",
                 "market": "market",
                 "portfolio": "portfolio",
-                "user_data": "user_data"
+                "user_data": "user_data",
+                "security": "security"
             }
             plan["agents"] = [agent_mapping.get(agent, agent) for agent in plan["agents"]]
             plan["agents"] = [agent for agent in plan["agents"] if agent in valid_agents]

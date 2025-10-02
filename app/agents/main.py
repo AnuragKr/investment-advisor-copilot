@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional
 from .market_agent import MarketAgent
 from .portfolio_agent import PortfolioAgent
 from .user_data_agent import UserDataAgent
+from .security_analysis_agent import SecurityAnalysisAgent
 from app.core.dependencies import PortfolioServiceDep, CurrentUserDep
 
 # Configure logging
@@ -35,6 +36,11 @@ class AgentSystem:
             market_agent = MarketAgent()
             self.agents["market"] = market_agent
             logger.info("Initialized market analysis agent")
+
+            # Initialize security analysis agent
+            security_agent = SecurityAnalysisAgent()
+            self.agents["security"] = security_agent
+            logger.info("Initialized security analysis agent")
 
             # Initialize user data agent if services are available
             user_data_agent = None
