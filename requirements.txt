@@ -60,3 +60,11 @@ uvicorn
 uvloop
 watchfiles
 websockets
+langgraph
+langchain-openai
+langchain-tavily
+yfinance
+numpy
+pandas
+pyyaml
+pydantic-settings

@@ -129,8 +129,22 @@ class SecuritySettings(BaseSettings):
     model_config = _base_config
 
 
+class AgentsSettings(BaseSettings):
+    """Configuration class for AI agents."""
+    OPENAI_API_KEY: str = ""
+    LANGSMITH_TRACING_V2: bool = False
+    LANGSMITH_ENDPOINT: str = ""
+    LANGSMITH_API_KEY: str = ""
+    LANGSMITH_PROJECT: str = ""
+    TAVILY_API_KEY: str = ""
+    NEWS_API_KEY: str = "d52174d2ed794aa9af0581ee177bbd92"
+
+    # Apply base configuration settings
+    model_config = _base_config
+
 # Initialize configuration instances
 # These instances will load settings from environment variables and .env files
 db_settings = DatabaseSettings()
 security_settings = SecuritySettings()
 project_settings = ProjectSettings()
+agents_settings = AgentsSettings()
