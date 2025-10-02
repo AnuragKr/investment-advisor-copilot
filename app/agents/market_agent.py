@@ -68,7 +68,7 @@ Guidelines:
                 String containing latest news headlines
             """
             try:
-                url = f"https://newsapi.org/v2/everything?q={query}&apiKey={config.news_api_key}&sortBy=publishedAt&pageSize=3"
+                url = f"https://newsapi.org/v2/everything?q={query}&apiKey={config.NEWS_API_KEY}&sortBy=publishedAt&pageSize=3"
                 response = requests.get(url, timeout=10)
                 response.raise_for_status()
                 

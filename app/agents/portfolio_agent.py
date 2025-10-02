@@ -5,11 +5,12 @@ A streamlined portfolio analysis agent focused on core functionality.
 """
 
 import logging
-from typing import List
+from typing import List, Optional
 import json
 from langchain_core.tools import tool
 
 from .base import BaseAgent, AgentConfig
+from .user_data_agent import UserDataAgent
 from app.config import agents_settings as config
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,8 @@ logger = logging.getLogger(__name__)
 class PortfolioAgent(BaseAgent):
     """Portfolio analysis agent."""
     
-    def __init__(self):
+    def __init__(self, user_data_agent: Optional[UserDataAgent] = None):
+        self.user_data_agent = user_data_agent
         agent_config = AgentConfig(
             name="Portfolio Analysis Agent",
             description="Agent for portfolio analysis and risk assessment",
@@ -32,32 +34,64 @@ class PortfolioAgent(BaseAgent):
     
     def _initialize_tools(self) -> List:
         """Initialize portfolio analysis tools."""
-        return [
+        tools = [
             self._create_portfolio_analysis_tool(),
             self._create_risk_assessment_tool(),
             self._create_optimization_tool()
         ]
+
+        # Add simple user data access tool if user_data_agent is available
+        if self.user_data_agent:
+            tools.append(self._create_simple_user_data_tool())
+
+        return tools
     
     def _get_system_message(self) -> str:
         """Get the system message for portfolio analysis."""
-        return """You are a portfolio analysis agent specialized in portfolio management and risk assessment.
+        base_message = """You are a portfolio analysis agent specialized in portfolio management and risk assessment.
 
 Your capabilities:
 - Analyze portfolio performance
 - Assess portfolio risk
-- Provide optimization recommendations
+- Provide optimization recommendations"""
+        
+        if self.user_data_agent:
+            base_message += """
+- Access real user portfolio data through UserDataAgent
+- Analyze actual holdings and positions
+- Provide personalized recommendations based on user's portfolio"""
+        
+        base_message += """
 
 Guidelines:
 - Provide clear, data-driven analysis
 - Include specific metrics and recommendations
 - Focus on actionable insights
 - Keep responses professional but accessible"""
+        
+        if self.user_data_agent:
+            base_message += """
+
+IMPORTANT: You have access to the user's actual portfolio data through a simple tool:
+- get_user_portfolio_data(): Get user's portfolio data directly
+
+When users ask about their portfolio, ALWAYS use this tool first to get their actual data:
+1. For any portfolio question: Use get_user_portfolio_data() to get the user's holdings
+2. Then analyze the data and provide insights
+
+Example workflow:
+- User asks: "What stocks do I own?"
+- You should: Call get_user_portfolio_data() first, then analyze the results
+- User asks: "Do I own AAPL?"
+- You should: Call get_user_portfolio_data() first, then check if AAPL is in the holdings"""
+        
+        return base_message
     
     def _create_portfolio_analysis_tool(self):
         """Create the portfolio analysis tool."""
         
         @tool
-        def analyze_portfolio(portfolio_data: str) -> str:
+        async def analyze_portfolio(portfolio_data: str) -> str:
             """Analyze portfolio performance.
             
             Args:
@@ -116,7 +150,7 @@ Guidelines:
         """Create the risk assessment tool."""
         
         @tool
-        def assess_portfolio_risk(portfolio_data: str) -> str:
+        async def assess_portfolio_risk(portfolio_data: str) -> str:
             """Assess portfolio risk.
             
             Args:
@@ -180,7 +214,7 @@ Guidelines:
         """Create the portfolio optimization tool."""
         
         @tool
-        def optimize_portfolio(portfolio_data: str) -> str:
+        async def optimize_portfolio(portfolio_data: str) -> str:
             """Optimize portfolio allocation.
             
             Args:
@@ -250,3 +284,32 @@ Optimized Portfolio:
                 return f"Error optimizing portfolio: {str(e)}"
         
         return optimize_portfolio
+    
+    def _create_simple_user_data_tool(self):
+        """Create a simple user data access tool."""
+        @tool
+        async def get_user_portfolio_data() -> str:
+            """Get the user's portfolio data directly from the database.
+            
+            Returns:
+                JSON string containing the user's portfolio holdings and summary
+            """
+            try:
+                import json
+                
+                # Get portfolio data directly from user_data_agent (now async)
+                portfolio_data = await self.user_data_agent._get_portfolio_data_async()
+                portfolio_summary = await self.user_data_agent._get_portfolio_summary_async()
+                
+                result = {
+                    "holdings": portfolio_data,
+                    "summary": portfolio_summary
+                }
+                
+                return json.dumps(result, default=str)
+                
+            except Exception as e:
+                logger.error(f"Error getting user portfolio data: {e}")
+                return f"Error retrieving portfolio data: {str(e)}"
+        
+        return get_user_portfolio_data

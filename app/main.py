@@ -12,6 +12,7 @@ from scalar_fastapi import get_scalar_api_reference
 from app.config import project_settings
 from app.api.v1.user import router as user_router
 from app.api.v1.portfolio import router as portfolio_router
+from app.api.v1.agents import router as agents_router
 
 
 # Configure application-wide logging
@@ -50,9 +51,10 @@ def create_application() -> FastAPI:
     )
     
     # Register API routers for different resource endpoints
-    # Each router handles a specific domain (users, portfolio, etc.)
+    # Each router handles a specific domain (users, portfolio, agents, etc.)
     app.include_router(user_router, prefix="/api/v1")
     app.include_router(portfolio_router, prefix="/api/v1")
+    app.include_router(agents_router, prefix="/api/v1")
     
     logger.info("FastAPI application created successfully with all routers registered")
     return app

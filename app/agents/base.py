@@ -46,6 +46,11 @@ class BaseAgent(ABC):
             api_key=config.openai_api_key
         )
         self.tools = self._initialize_tools()
+        
+        # Bind tools to LLM if tools are available
+        if self.tools:
+            self.llm = self.llm.bind_tools(self.tools)
+        
         self.graph = self._build_graph()
         
         logger.info(f"Initialized agent: {self.name}")
@@ -82,19 +87,19 @@ class BaseAgent(ABC):
                     "tools": "tools"
                 }
             )
-            graph.add_edge("tools", "reasoning")
+            graph.add_edge("tools", END)  # End after tools, don't loop back
         else:
             graph.add_edge("reasoning", END)
         
         return graph.compile()
     
-    def _reasoning_node(self, state: MessagesState) -> MessagesState:
+    async def _reasoning_node(self, state: MessagesState) -> MessagesState:
         """Reasoning node implementation."""
         try:
             system_message = {"role": "system", "content": self._get_system_message()}
             messages = [system_message] + state["messages"]
             
-            response = self.llm.invoke(messages)
+            response = await self.llm.ainvoke(messages)
             return {"messages": [response]}
         except Exception as e:
             logger.error(f"Error in reasoning node: {e}")
@@ -103,9 +108,16 @@ class BaseAgent(ABC):
     
     def _should_continue(self, state: MessagesState) -> str:
         """Determine if the agent should continue or end."""
-        if not state["messages"] or not state["messages"][-1].tool_calls:
+        if not state["messages"]:
             return END
-        return "tools"
+        
+        last_message = state["messages"][-1]
+        
+        # Check if the last message has tool calls
+        if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+            return "tools"
+        
+        return END
     
     async def process_query(self, query: str) -> Dict[str, Any]:
         """Process a query using the agent."""
@@ -113,10 +125,10 @@ class BaseAgent(ABC):
             # Create initial message
             initial_message = HumanMessage(content=query)
             
-            # Process through the graph
-            result = self.graph.invoke(
+            # Process through the graph asynchronously
+            result = await self.graph.ainvoke(
                 {"messages": [initial_message]},
-                config={"recursion_limit": self.config.max_iterations}
+                config={"recursion_limit": 10}
             )
             
             return {
